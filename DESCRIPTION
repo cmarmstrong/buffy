@@ -6,7 +6,8 @@ Description: What the package does (one paragraph).
 Depends: R (>= 3.4.0)
 Imports: geosphere,
   sf,
-  sp
+  sp,
+  units
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true

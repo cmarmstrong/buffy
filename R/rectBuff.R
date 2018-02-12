@@ -17,12 +17,12 @@
 #' p1 <- sf::st_sfc(sf::st_point(as.numeric(c(-92.44744828628, 34.566107548536))))
 #' p2 <- p1 + rnorm(2, sd=0.1)
 #' b <- geosphere::bearing(as(p1, 'Spatial'), as(p2, 'Spatial'))
-#' rectBuff(p1, ud_units $mi, 2*ud_units $mi, b)
+#' rectBuff(p1, units::ud_units $mi, 2*units::ud_units $mi, b)
 #' @export
 rectBuff <- function(x, dMajor, dMinor, b) {
     browser()
-    xMajor <- destPoint(as(x, 'Spatial'), b, dMajor)
-    xMinor <- destPoint(as(x, 'Spatial'), b+90, dMinor)
+    xMajor <- geosphere::destPoint(as(x, 'Spatial'), b, dMajor)
+    xMinor <- geosphere::destPoint(as(x, 'Spatial'), b+90, dMinor)
     
     pntE <- pnt + c(0, 1)
     pntN <- pnt + c(1, 0)
