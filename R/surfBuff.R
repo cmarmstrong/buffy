@@ -9,18 +9,26 @@
 #'
 #' Parameter \code{d} must be a \code{\link{units}} object
 #'
-#' @param x points
-#' @param p polygons with factor IDs
-#' @param s named vector of surface effects
-#' @param d distance
+#' @param x points of class sf
+#' @param p polygons of class sf with factor IDs
+#' @param s named vector of surface effects for each factor ID in \code{p}
+#' @param d radius distance of class units
 #' @examples
 #' data(urbanUS)
-#' pnt <- sf::st_sfc(sf::st_point(as.numeric(c(-92.44744828628, 34.566107548536))))
-#' x <- getFood(pnt)
-#' forCrop <- sf::st_buffer(x, d)
+#' x <- c(-92.44744828628, 34.566107548536)
+#' mi <- units::ud_units $mi
+#' d <- 10 # miles
+#' dDegrees <- 5e3/geosphere::distGeo(x, x+c(0, 1)) # meters
+#' aabb <- rectBuff(x, dDegrees)
+#' sp::proj4string(aabb) <- sp::CRS('+init=espg:4326')
+#' query <- osmdata::opq(sp::bbox(aabb))
+#' query <- osmdata::add_osm_feature(query, 'shop', 'supermarket', value_exact=FALSE)
+#' osmSupermarkets <- osmdata::osmdata_sf(query) # NOTICE switch to sf
+#' forCrop <- sf::st_buffer(osmSupermarkets, (d+1)*mi)
 #' rCropped <- crop(urbanUS, as(forCrop, 'Spatial'))
 #' p <- rasterToPolygons(rCropped, digits=7, dissolve=TRUE)
 #' p <- st_as_sf(p)
+#' surfBuff(x, p, 0.1, d)
 #' @export
 surfBuff <- function(x, p, s, d) {
     browser()
