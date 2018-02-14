@@ -2,39 +2,38 @@
 #'
 #' Construct a buffer that is attenuated by effects of the surface.
 #'
-#' Parameters \code{x} and \code{p} must be \code{\link{sf}} objects.
-#' 
-#' Names of \code{s} must match factor IDs in \code{p}, values of \code{s}
-#' indicate resistance through polygons with respective factor ID.
-#'
-#' Parameter \code{d} must be a \code{\link{units}} object
-#'
 #' @param x points of class sf
-#' @param p polygons of class sf with factor IDs
-#' @param s named vector of surface effects for each factor ID in \code{p}
+#' @param p polygons of class sf with a factor indicating surface type
+#' @param s a named list of named vectors; list names indicate factor names in
+#'   \code{p}, vector names indicate factor values, and vector values indicate
+#'   surface effects
 #' @param d radius distance of class units
 #' @examples
 #' data(urbanUS)
 #' x <- c(-92.44744828628, 34.566107548536)
 #' mi <- units::ud_units $mi
-#' d <- 10 # miles
-#' dDegrees <- 5e3/geosphere::distGeo(x, x+c(0, 1)) # meters
-#' aabb <- rectBuff(x, dDegrees)
-#' sp::proj4string(aabb) <- sp::CRS('+init=espg:4326')
+#' m <- units::ud_units $m
+#' aabb <- rectBuff(x, 7e3*m, 7e3*m)
+#' sp::proj4string(aabb) <- sp::CRS('+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs')
 #' query <- osmdata::opq(sp::bbox(aabb))
 #' query <- osmdata::add_osm_feature(query, 'shop', 'supermarket', value_exact=FALSE)
 #' osmSupermarkets <- osmdata::osmdata_sf(query) # NOTICE switch to sf
-#' forCrop <- sf::st_buffer(osmSupermarkets, (d+1)*mi)
-#' rCropped <- crop(urbanUS, as(forCrop, 'Spatial'))
-#' p <- rasterToPolygons(rCropped, digits=7, dissolve=TRUE)
-#' p <- st_as_sf(p)
-#' surfBuff(x, p, 0.1, d)
+#' sfSupermarkets <- osmSupermarkets $osm_points
+#' sfSupermarkets <- sf::st_transform(sfSupermarkets, 3083) # Albers EAC for buffering
+#' forCrop <- sf::st_buffer(sfSupermarkets, 11*mi)
+#' rCropped <- raster::crop(urbanUS, as(forCrop, 'Spatial'))
+#' p <- raster::rasterToPolygons(rCropped, digits=7, dissolve=TRUE)
+#' p <- sf::st_as_sf(p)
+#' x <- sf::st_sf(geometry=sf::st_sfc(sf::st_point(x)))
+#' sf::st_crs(x) <- 4326
+#' x <- sf::st_transform(x, 3083)
+#' s <- list(urbanUS=c('1'=0.1))
+#' surfBuff(x, p, s, 10*mi)
 #' @export
 surfBuff <- function(x, p, s, d) {
-    browser()
     if(sf::st_crs(x)!=sf::st_crs(p)) stop('CRS of x and p do not match')
     else crsBuf <- sf::st_crs(x)
-    buf <- sf::st_buffer(x, dist)
+    buf <- sf::st_buffer(x, d)
     coordsBuf <- sf::st_coordinates(buf)
     ## make linestrings from x to points on respective buf
     lCoords <- by(coordsBuf, coordsBuf[, 'L2'], apply, 1, function(M) {
@@ -45,23 +44,26 @@ surfBuff <- function(x, p, s, d) {
     })
     lSf <- lapply(1:length(lM), function(i) {
         m <- lM[[i]]
-        sfcLs <- do.call(st_sfc, lapply(m, sf::st_linestring))
+        sfcLs <- do.call(sf::st_sfc, lapply(m, sf::st_linestring))
         sf::st_sf(geometry=sfcLs, idLs=1:length(sfcLs), idFeature=i)
     })
     sfLs <- do.call(rbind, lSf)
+    sf::st_crs(sfLs) <- crsBuf
     ## intersect linestrings with "terrain" polygons
     sfIn <- sf::st_intersection(sfLs, p)
     ## attenuate linestring lengths by "terrain"
     newBuffer <- mapply(function(lstring, mls) {
+        browser()
         coordsLs <- sf::st_coordinates(lstring)
         coordsLs[, 'L1'] <- c(0, 0)
         coordsLs <- cbind(coordsLs, L2=c(1, 1))
         coordsMls <- rbind(coordsLs[1, ], sf::st_coordinates(mls), coordsLs[2, ])
         coordsMls <- coordsMls[, c('X', 'Y')]
-        sfLs <- st_sf(urban=c(rep(c(0, 1), (nrow(coordsMls)-1)%/%2), 0),
-                      geometry=st_sfc(lapply(nrow(coordsMls):2, function(i) {
-                          sf::st_linestring(rbind(coordsMls[i, ], coordsMls[i-1, ]))
-                      })))
+        ## 
+        sfLs <- sf::st_sf(urban=c(rep(c(0, 1), (nrow(coordsMls)-1)%/%2), 0),
+                          geometry=sf::st_sfc(lapply(nrow(coordsMls):2, function(i) {
+                                                  sf::st_linestring(rbind(coordsMls[i, ], coordsMls[i-1, ]))
+        })))
         sf::st_crs(sfLs) <- crsBuf
         lenLs <- sf::st_length(sfLs)
         csumLs <- cumsum(ifelse(sfLs $urban==1, lenLs, lenLs/10))
