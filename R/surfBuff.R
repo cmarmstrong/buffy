@@ -6,8 +6,8 @@
 #' @param p polygons of class sf with a factor indicating surface type
 #' @param s a named list of named vectors; list names indicate factor names in
 #'   \code{p}, vector names indicate factor values, and vector values indicate
-#'   surface effects
-#' @param d radius distance of class units
+#'   surface effects as distance multipliers
+#' @param d radius distance of class units; the units must match the units of p
 #' @examples
 #' data(urbanUS)
 #' x <- c(-92.44744828628, 34.566107548536)
@@ -27,10 +27,13 @@
 #' x <- sf::st_sf(geometry=sf::st_sfc(sf::st_point(x)))
 #' sf::st_crs(x) <- 4326
 #' x <- sf::st_transform(x, 3083)
-#' s <- list(urbanUS=c('1'=0.1))
-#' surfBuff(x, p, s, 10*mi)
+#' s <- list(urbanUS=c('1'=10))
+#' d <- 10*mi
+#' units(d) <- m
+#' surfBuff(x, p, s, d)
 #' @export
 surfBuff <- function(x, p, s, d) {
+    browser()
     if(sf::st_crs(x)!=sf::st_crs(p)) stop('CRS of x and p do not match')
     else crsBuf <- sf::st_crs(x)
     buf <- sf::st_buffer(x, d)
@@ -49,38 +52,47 @@ surfBuff <- function(x, p, s, d) {
     })
     sfLs <- do.call(rbind, lSf)
     sf::st_crs(sfLs) <- crsBuf
-    ## intersect linestrings with "terrain" polygons
     sfIn <- sf::st_intersection(sfLs, p)
-    ## attenuate linestring lengths by "terrain"
-    newBuffer <- mapply(function(lstring, mls) {
-        browser()
-        coordsLs <- sf::st_coordinates(lstring)
+    newBuffer <- mapply(function(lstring, mls) { # attenuate linestrings by surface effects
+        mls <- sf::st_cast(mls, 'MULTILINESTRING')
+        coordsLs <- sf::st_coordinates(lstring) # start and end point
         coordsLs[, 'L1'] <- c(0, 0)
         coordsLs <- cbind(coordsLs, L2=c(1, 1))
         coordsMls <- rbind(coordsLs[1, ], sf::st_coordinates(mls), coordsLs[2, ])
-        coordsMls <- coordsMls[, c('X', 'Y')]
-        ## 
-        sfLs <- sf::st_sf(urban=c(rep(c(0, 1), (nrow(coordsMls)-1)%/%2), 0),
-                          geometry=sf::st_sfc(lapply(nrow(coordsMls):2, function(i) {
-                                                  sf::st_linestring(rbind(coordsMls[i, ], coordsMls[i-1, ]))
-        })))
+        sfLs <- lapply(unique(coordsMls[, 'L2']), function(L2) {
+            coordsSub <- coordsMls[coordsMls[, 'L2']==L2, c('X', 'Y')]
+            s <- sapply(names(s), function(name) { # surface types
+                c(rep(c(0, mls[L2, name, drop=TRUE]), (nrow(coordsSub)-1)%/%2), 0)
+            })
+            geom <- lapply(nrow(coordsSub):2, function(i) {
+                sf::st_linestring(rbind(coordsSub[i, ], coordsSub[i-1, ]))
+            })
+            sf::st_sf(geometry=sf::st_sfc(geom), s)
+        })
+        sfLs <- do.call(rbind, sfLs)
         sf::st_crs(sfLs) <- crsBuf
         lenLs <- sf::st_length(sfLs)
-        csumLs <- cumsum(ifelse(sfLs $urban==1, lenLs, lenLs/10))
-        xsLs <- with(ud_units, csumLs*m > mi)
+        lenLs <- sapply(names(s), function(name) {
+          isSurf <- sfLs[, name, drop=TRUE]==1
+          lenLs[isSurf] <- lenLs[isSurf] * s[[name]]
+          lenLs
+        })
+        csumLs <- cumsum(lenLs)
+        units(csumLs) <- units(d)
+        xsLs <- csumLs > d
         lsXs <- sfLs[xsLs, ][1, ]
-        ## isUrban <- sfLs[xsLs, 'urban', drop=TRUE][1]
-        ## isUrban <- lsXs $urban
-        xsLen <- with(ud_units, csumLs[xsLs][1]*m - mi)
+        lenXs <- csumLs[xsLs][1] - d
+        ## here
         startLen <- rev(csumLs[!xsLs])[1]
-        okLen <- set_units(with(ud_units, mi - startLen*m), 'm')
-        okLen <- ifelse(lsXs $urban==1, okLen, okLen*10)
+        ## okLen <- set_units(with(ud_units, mi - startLen*m), 'm')
+        lenOk <- d - startLen
+        ## okLen <- ifelse(lsXs $urban==1, okLen, okLen*10)
         ## xsCoords <- st_coordinates(st_transform(sfLs[xsLs, ], 4326))[, c('X', 'Y')]
         xsCoords <- sf::st_coordinates(sf::st_transform(lsXs, 4326))[, c('X', 'Y')]
         b <- geosphere::bearing(xsCoords)
         ## NOTE: newPnt may not be correct
-        newPnt <- geosphere::destPoint(xsCoords, b, okLen)[1, ]
-        sfcPnt <- sf::st_sfc(st_point(newPnt))
+        newPnt <- geosphere::destPoint(xsCoords, b, lenOk)[1, ]
+        sfcPnt <- sf::st_sfc(sf::st_point(newPnt))
         sf::st_crs(sfcPnt) <- 4326
         sf::st_coordinates(sf::st_transform(sfcPnt, crsBuf))
     }, split(sfLs, 1:nrow(sfLs)), split(sfIn, 1:nrow(sfIn)))
