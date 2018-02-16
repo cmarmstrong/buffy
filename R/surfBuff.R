@@ -8,6 +8,7 @@
 #'   \code{p}, vector names indicate factor values, and vector values indicate
 #'   surface effects as distance multipliers
 #' @param d radius distance of class units; the units must match the units of p
+#' @return An sfc object holding surface buffers for each of the points in x
 #' @examples
 #' data(urbanUS)
 #' x <- c(-92.44744828628, 34.566107548536)
@@ -30,10 +31,12 @@
 #' s <- list(urbanUS=c('1'=10))
 #' d <- 10*mi
 #' units(d) <- m
-#' surfBuff(x, p, s, d)
+#' foodDeserts <- surfBuff(sfSupermarkets, p, s, d)
+#' plot(rCropped, col='orange', legend=FALSE)
+#' plot(sf::st_geometry(p), add=TRUE)
+#' plot(sf::st_geometry(foodDeserts), add=TRUE)
 #' @export
 surfBuff <- function(x, p, s, d) {
-    browser()
     if(sf::st_crs(x)!=sf::st_crs(p)) stop('CRS of x and p do not match')
     else crsBuf <- sf::st_crs(x)
     buf <- sf::st_buffer(x, d)
@@ -54,6 +57,7 @@ surfBuff <- function(x, p, s, d) {
     sf::st_crs(sfLs) <- crsBuf
     sfIn <- sf::st_intersection(sfLs, p)
     newBuffer <- mapply(function(lstring, mls) { # attenuate linestrings by surface effects
+        browser()
         mls <- sf::st_cast(mls, 'MULTILINESTRING')
         coordsLs <- sf::st_coordinates(lstring) # start and end point
         coordsLs[, 'L1'] <- c(0, 0)
@@ -61,7 +65,7 @@ surfBuff <- function(x, p, s, d) {
         coordsMls <- rbind(coordsLs[1, ], sf::st_coordinates(mls), coordsLs[2, ])
         sfLs <- lapply(unique(coordsMls[, 'L2']), function(L2) {
             coordsSub <- coordsMls[coordsMls[, 'L2']==L2, c('X', 'Y')]
-            s <- sapply(names(s), function(name) { # surface types
+            s <- sapply(names(s), function(name) { # surface types NOTE insert distance factors here, then apply and remove them?
                 c(rep(c(0, mls[L2, name, drop=TRUE]), (nrow(coordsSub)-1)%/%2), 0)
             })
             geom <- lapply(nrow(coordsSub):2, function(i) {
@@ -83,14 +87,10 @@ surfBuff <- function(x, p, s, d) {
         lsXs <- sfLs[xsLs, ][1, ]
         lenXs <- csumLs[xsLs][1] - d
         ## here
-        startLen <- rev(csumLs[!xsLs])[1]
-        ## okLen <- set_units(with(ud_units, mi - startLen*m), 'm')
-        lenOk <- d - startLen
-        ## okLen <- ifelse(lsXs $urban==1, okLen, okLen*10)
-        ## xsCoords <- st_coordinates(st_transform(sfLs[xsLs, ], 4326))[, c('X', 'Y')]
+        lenStart <- rev(csumLs[!xsLs])[1]
+        lenOk <- d - lenStart
         xsCoords <- sf::st_coordinates(sf::st_transform(lsXs, 4326))[, c('X', 'Y')]
         b <- geosphere::bearing(xsCoords)
-        ## NOTE: newPnt may not be correct
         newPnt <- geosphere::destPoint(xsCoords, b, lenOk)[1, ]
         sfcPnt <- sf::st_sfc(sf::st_point(newPnt))
         sf::st_crs(sfcPnt) <- 4326
@@ -100,6 +100,6 @@ surfBuff <- function(x, p, s, d) {
     lNewBuffer <- lapply(split(newBuffer, rep(1:29, each=121)), matrix, ncol=2)
     sfcNewBuffers <- sf::st_sfc(lapply(lNewBuffer, function(newBuffer) {
         sf::st_polygon(list(rbind(newBuffer, newBuffer[1, ])))}))
-    foodDeserts <- sf::st_union(sfcNewBuffers)
-    st_crs(foodDeserts) <- crsBuf
+    sf::st_crs(sfcNewBuffers) <- crsBuf
+    sfcNewBuffers
 }
