@@ -10,11 +10,21 @@
 #' @param d radius distance of class units; the units must match the units of p
 #' @return An sfc object holding surface buffers for each of the points in x
 #' @examples
-#' data(urbanUS)
 #' x <- c(-92.44744828628, 34.566107548536)
 #' mi <- units::ud_units $mi
 #' m <- units::ud_units $m
-#' aabb <- rectBuff(x, 7e3*m, 7e3*m)
+#' aabb <- sp::bbox(rectBuff(x, 1e4*m))
+#' rx <- runif(20, aabb[1, 1], aabb[1, 2])
+#' ry <- runif(20, aabb[2, 1], aabb[2, 2])
+#' p <- rectBuff(cbind(rx, ry), 1e2*m)
+#' ## TODO generate two random 's' categories for the polygons in p
+#' rx <- runif(5, aabb[1, 1], aabb[1, 2])
+#' ry <- runif(5, aabb[2, 1], aabb[2, 2])
+#' x <- cbind(rx, ry)
+#' surfBuff(x, p, s, 1e3*m)
+#' 
+#' data(urbanUS)
+#' x <- c(-92.44744828628, 34.566107548536)
 #' sp::proj4string(aabb) <- sp::CRS('+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs')
 #' query <- osmdata::opq(sp::bbox(aabb))
 #' query <- osmdata::add_osm_feature(query, 'shop', 'supermarket', value_exact=FALSE)
@@ -65,7 +75,8 @@ surfBuff <- function(x, p, s, d) {
         coordsMls <- rbind(coordsLs[1, ], sf::st_coordinates(mls), coordsLs[2, ])
         sfLs <- lapply(unique(coordsMls[, 'L2']), function(L2) {
             coordsSub <- coordsMls[coordsMls[, 'L2']==L2, c('X', 'Y')]
-            s <- sapply(names(s), function(name) { # surface types NOTE insert distance factors here, then apply and remove them?
+            s <- sapply(names(s), function(name) { # surface types
+                ## NOTE insert distance factors, instead of identifiers?  see not in 'scaling'
                 c(rep(c(0, mls[L2, name, drop=TRUE]), (nrow(coordsSub)-1)%/%2), 0)
             })
             geom <- lapply(nrow(coordsSub):2, function(i) {
@@ -76,10 +87,11 @@ surfBuff <- function(x, p, s, d) {
         sfLs <- do.call(rbind, sfLs)
         sf::st_crs(sfLs) <- crsBuf
         lenLs <- sf::st_length(sfLs)
-        lenLs <- sapply(names(s), function(name) {
-          isSurf <- sfLs[, name, drop=TRUE]==1
-          lenLs[isSurf] <- lenLs[isSurf] * s[[name]]
-          lenLs
+        lenLs <- sapply(names(s), function(name) { # scaling by surface types
+            ## NOTE see note in 'surface types'
+            isSurf <- sfLs[, name, drop=TRUE]==1
+            lenLs[isSurf] <- lenLs[isSurf] * s[[name]]
+            lenLs
         })
         csumLs <- cumsum(lenLs)
         units(csumLs) <- units(d)
