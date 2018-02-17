@@ -3,25 +3,33 @@
 #' Construct a buffer that is attenuated by effects of the surface.
 #'
 #' @param x points of class sf
-#' @param p polygons of class sf with a factor indicating surface type
-#' @param s a named list of named vectors; list names indicate factor names in
-#'   \code{p}, vector names indicate factor values, and vector values indicate
-#'   surface effects as distance multipliers
-#' @param d radius distance of class units; the units must match the units of p
+#' @param p polygons of class sf, optionally with a single column indicating
+#'   surface effects as distance multipliers; eg an effect of 6 increases
+#'   distance across a polygon by 6
+#' @param d radius distance of class units; the units must be convertible to
+#'   units of p
 #' @return An sfc object holding surface buffers for each of the points in x
 #' @examples
-#' x <- c(-92.44744828628, 34.566107548536)
 #' mi <- units::ud_units $mi
 #' m <- units::ud_units $m
+#' x <- c(runif(1, -114, -82), runif(1, 31, 40))
 #' aabb <- sp::bbox(rectBuff(x, 1e4*m))
 #' rx <- runif(20, aabb[1, 1], aabb[1, 2])
 #' ry <- runif(20, aabb[2, 1], aabb[2, 2])
-#' p <- rectBuff(cbind(rx, ry), 1e2*m)
-#' ## TODO generate two random 's' categories for the polygons in p
+#' p <- rectBuff(cbind(rx, ry), 1e3*m)
+#' s <- data.frame(s=rpois(20, 3)+1)
+#' ## will a single factor column handle overlapping polygons?
+#' p <- sp::SpatialPolygonsDataFrame(sp::disaggregate(p), s)
+#' p <- sf::st_as_sf(p)
 #' rx <- runif(5, aabb[1, 1], aabb[1, 2])
 #' ry <- runif(5, aabb[2, 1], aabb[2, 2])
-#' x <- cbind(rx, ry)
-#' surfBuff(x, p, s, 1e3*m)
+#' x <- sf::st_sfc(sf::st_multipoint(cbind(rx, ry)))
+#' sf::st_crs(x) <- 4326
+#' sf::st_crs(p) <- 4326
+#' x <- sf::st_transform(x, 3083)
+#' p <- sf::st_transform(p, 3083)
+#' x <- sf::st_sf(sf::st_cast(x, 'POINT'))
+#' surfBuff(x, p, 1e3*m)
 #' 
 #' data(urbanUS)
 #' x <- c(-92.44744828628, 34.566107548536)
@@ -46,7 +54,7 @@
 #' plot(sf::st_geometry(p), add=TRUE)
 #' plot(sf::st_geometry(foodDeserts), add=TRUE)
 #' @export
-surfBuff <- function(x, p, s, d) {
+surfBuff <- function(x, p, d) {
     if(sf::st_crs(x)!=sf::st_crs(p)) stop('CRS of x and p do not match')
     else crsBuf <- sf::st_crs(x)
     buf <- sf::st_buffer(x, d)
@@ -75,24 +83,26 @@ surfBuff <- function(x, p, s, d) {
         coordsMls <- rbind(coordsLs[1, ], sf::st_coordinates(mls), coordsLs[2, ])
         sfLs <- lapply(unique(coordsMls[, 'L2']), function(L2) {
             coordsSub <- coordsMls[coordsMls[, 'L2']==L2, c('X', 'Y')]
-            s <- sapply(names(s), function(name) { # surface types
-                ## NOTE insert distance factors, instead of identifiers?  see not in 'scaling'
-                c(rep(c(0, mls[L2, name, drop=TRUE]), (nrow(coordsSub)-1)%/%2), 0)
-            })
+            s <- c(rep(c(1, mls $s), (nrow(coordsSub)-1)%/%2), 1)
+            ## s <- sapply(names(s), function(name) { # surface types
+            ##     ## NOTE insert distance factors, instead of identifiers?  see not in 'scaling'
+            ##     c(rep(c(0, mls[L2, name, drop=TRUE]), (nrow(coordsSub)-1)%/%2), 0)
+            ## })
             geom <- lapply(nrow(coordsSub):2, function(i) {
                 sf::st_linestring(rbind(coordsSub[i, ], coordsSub[i-1, ]))
             })
-            sf::st_sf(geometry=sf::st_sfc(geom), s)
+            sf::st_sf(geometry=sf::st_sfc(geom), s=s)
         })
         sfLs <- do.call(rbind, sfLs)
         sf::st_crs(sfLs) <- crsBuf
         lenLs <- sf::st_length(sfLs)
-        lenLs <- sapply(names(s), function(name) { # scaling by surface types
-            ## NOTE see note in 'surface types'
-            isSurf <- sfLs[, name, drop=TRUE]==1
-            lenLs[isSurf] <- lenLs[isSurf] * s[[name]]
-            lenLs
-        })
+        lenLs <- lenLs * sfLs $s
+        ## lenLs <- sapply(names(s), function(name) { # scaling by surface types
+        ##     ## NOTE see note in 'surface types'
+        ##     isSurf <- sfLs[, name, drop=TRUE]==1
+        ##     lenLs[isSurf] <- lenLs[isSurf] * s[[name]]
+        ##     lenLs
+        ## })
         csumLs <- cumsum(lenLs)
         units(csumLs) <- units(d)
         xsLs <- csumLs > d
