@@ -45,10 +45,10 @@ surfBuff <- function(x, p, s, d) {
     lCoords <- by(coordsBuf, coordsBuf[, 'L2'], apply, 1, function(M) {
         rbind(M[1:2], sf::st_coordinates(x[M[4], ]))
     })
-    lM <- lapply(lCoords, function(coords) {
+    lM <- lapply(lCoords, function(coords) { # convert coords to 2x2 matrices
         lapply(split(t(coords), seq(NCOL(coords))), matrix, nrow=2)
     })
-    lSf <- lapply(1:length(lM), function(i) {
+    lSf <- lapply(1:length(lM), function(i) { # make linestrings from 2x2 matrices
         m <- lM[[i]]
         sfcLs <- do.call(sf::st_sfc, lapply(m, sf::st_linestring))
         sf::st_sf(geometry=sfcLs, idLs=1:length(sfcLs), idFeature=i)
@@ -61,7 +61,7 @@ surfBuff <- function(x, p, s, d) {
         mls <- sf::st_cast(mls, 'MULTILINESTRING')
         coordsLs <- sf::st_coordinates(lstring) # start and end point
         coordsLs[, 'L1'] <- c(0, 0)
-        coordsLs <- cbind(coordsLs, L2=c(1, 1))
+        coordsLs <- cbind(coordsLs, L2=c(1, 1)) # NOTE mls with > 1 L2 ?
         coordsMls <- rbind(coordsLs[1, ], sf::st_coordinates(mls), coordsLs[2, ])
         sfLs <- lapply(unique(coordsMls[, 'L2']), function(L2) {
             coordsSub <- coordsMls[coordsMls[, 'L2']==L2, c('X', 'Y')]
