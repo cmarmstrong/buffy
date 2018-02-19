@@ -16,11 +16,15 @@
 #' aabb <- sp::bbox(rectBuff(x, 1e4*m))
 #' rx <- runif(20, aabb[1, 1], aabb[1, 2])
 #' ry <- runif(20, aabb[2, 1], aabb[2, 2])
-#' p <- rectBuff(cbind(rx, ry), 1e3*m)
-#' s <- data.frame(s=rpois(20, 3)+1)
+#' p <- rectBuff(cbind(rx, ry), 2e3*m)
+#' p <- sf::st_cast(sf::st_as_sf(p), 'POLYGON')
+#' isect <- snap(p, 0)
+#' p <- do.call(sf::st_sfc, sapply(1:max(isect), function(j) sf::st_union(p[isect==j, ])))
+#' s <- data.frame(s=rpois(length(p), 3)+1)
+#' p <- sf::st_sf(p, s)
 #' ## will a single factor column handle overlapping polygons?
-#' p <- sp::SpatialPolygonsDataFrame(sp::disaggregate(p), s)
-#' p <- sf::st_as_sf(p)
+#' ## p <- sp::SpatialPolygonsDataFrame(sp::disaggregate(p), s)
+#' ## p <- sf::st_as_sf(p)
 #' rx <- runif(5, aabb[1, 1], aabb[1, 2])
 #' ry <- runif(5, aabb[2, 1], aabb[2, 2])
 #' x <- sf::st_sfc(sf::st_multipoint(cbind(rx, ry)))
@@ -29,7 +33,8 @@
 #' x <- sf::st_transform(x, 3083)
 #' p <- sf::st_transform(p, 3083)
 #' x <- sf::st_sf(sf::st_cast(x, 'POINT'))
-#' surfBuff(x, p, 1e3*m)
+#' ## TODO union p and average s values; overlapping polygons may cause a problem
+#' surfBuff(x, p, 3e3*m)
 #' 
 #' data(urbanUS)
 #' x <- c(-92.44744828628, 34.566107548536)
@@ -55,6 +60,7 @@
 #' plot(sf::st_geometry(foodDeserts), add=TRUE)
 #' @export
 surfBuff <- function(x, p, d) {
+    ## browser()
     if(sf::st_crs(x)!=sf::st_crs(p)) stop('CRS of x and p do not match')
     else crsBuf <- sf::st_crs(x)
     buf <- sf::st_buffer(x, d)
@@ -79,13 +85,15 @@ surfBuff <- function(x, p, d) {
         mls <- sf::st_cast(mls, 'MULTILINESTRING')
         coordsLs <- sf::st_coordinates(lstring) # start and end point
         coordsLs[, 'L1'] <- c(0, 0)
-        coordsLs <- cbind(coordsLs, L2=c(1, 1)) # NOTE mls with > 1 L2 ?
-        coordsMls <- rbind(coordsLs[1, ], sf::st_coordinates(mls), coordsLs[2, ])
+        coordsMls <- sf::st_coordinates(mls)
+        coordsLs <- cbind(coordsLs, L2=c(coordsMls[1, 'L2'], coordsMls[nrow(coordsMls), 'L2']))
+        coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
         sfLs <- lapply(unique(coordsMls[, 'L2']), function(L2) {
+            ## browser()
             coordsSub <- coordsMls[coordsMls[, 'L2']==L2, c('X', 'Y')]
-            s <- c(rep(c(1, mls $s), (nrow(coordsSub)-1)%/%2), 1)
+            s <- c(rep(c(1, mls[L2, ] $s), (nrow(coordsSub)-1)%/%2), 1)
             ## s <- sapply(names(s), function(name) { # surface types
-            ##     ## NOTE insert distance factors, instead of identifiers?  see not in 'scaling'
+            ##     ## NOTE insert distance factors, instead of identifiers?  see note in 'scaling'
             ##     c(rep(c(0, mls[L2, name, drop=TRUE]), (nrow(coordsSub)-1)%/%2), 0)
             ## })
             geom <- lapply(nrow(coordsSub):2, function(i) {
@@ -109,10 +117,13 @@ surfBuff <- function(x, p, d) {
         lsXs <- sfLs[xsLs, ][1, ]
         lenXs <- csumLs[xsLs][1] - d
         ## here
-        lenStart <- rev(csumLs[!xsLs])[1]
+        iStart <- rev(which(!xsLs))[1]
+        ## lenStart <- rev(csumLs[!xsLs])[1]
+        lenStart <- csumLs[iStart]
         lenOk <- d - lenStart
         xsCoords <- sf::st_coordinates(sf::st_transform(lsXs, 4326))[, c('X', 'Y')]
         b <- geosphere::bearing(xsCoords)
+        ## descale lenOk: sfLs $s[iStart] ?
         newPnt <- geosphere::destPoint(xsCoords, b, lenOk)[1, ]
         sfcPnt <- sf::st_sfc(sf::st_point(newPnt))
         sf::st_crs(sfcPnt) <- 4326
