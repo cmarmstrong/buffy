@@ -10,6 +10,7 @@
 #'   units of p
 #' @return An sfc object holding surface buffers for each of the points in x
 #' @examples
+#' \dontrun{
 #' mi <- units::ud_units $mi
 #' m <- units::ud_units $m
 #' x <- c(runif(1, -114, -82), runif(1, 31, 40))
@@ -35,16 +36,16 @@
 #' x <- sf::st_sf(sf::st_cast(x, 'POINT'))
 #' ## TODO: handle overlapping polygons
 #' surfBuff(x, p, 3e3*m)
+#' }
 #' @export
 surfBuff <- function(x, p, d) {
-    browser()
     if(sf::st_crs(x)!=sf::st_crs(p)) stop('CRS of x and p do not match')
     else crsBuf <- sf::st_crs(x)
     buf <- sf::st_buffer(x, d)
     coordsBuf <- sf::st_coordinates(buf)
     ## make linestrings from x to points on respective buf
     lCoords <- by(coordsBuf, coordsBuf[, 'L2'], apply, 1, function(M) {
-        rbind(M[1:2], sf::st_coordinates(x[M[4], ]))
+        rbind(sf::st_coordinates(x[M[4], ]), M[1:2]) # bind center and buffer point coords
     })
     lM <- lapply(lCoords, function(coords) { # convert coords to 2x2 matrices
         lapply(split(t(coords), seq(NCOL(coords))), matrix, nrow=2)
@@ -61,7 +62,7 @@ surfBuff <- function(x, p, d) {
     sfLsIn <- merge(sfLs, sfIn[, c('idLs', 'idFeature') ,drop=TRUE], by=c('idLs', 'idFeature'))
     sfLsIn <- sfLsIn[with(sfLsIn, order(idFeature, idLs)), ]
     sfIn <- sfIn[with(sfIn, order(idFeature, idLs)), ]
-    newBuffer <- mapply(function(lstring, mls) { # attenuate linestrings by surface effects
+    mNewLines <- mapply(function(lstring, mls) { # attenuate linestrings by surface effects
         mls <- sf::st_cast(mls, 'MULTILINESTRING')
         coordsLs <- sf::st_coordinates(lstring) # start and end points
         coordsLs[, 'L1'] <- c(0, 0)
@@ -96,11 +97,19 @@ surfBuff <- function(x, p, d) {
         sf::st_crs(sfcPnt) <- 4326
         sf::st_coordinates(sf::st_transform(sfcPnt, crsBuf))
     }, split(sfLsIn, 1:nrow(sfLsIn)), split(sfIn, 1:nrow(sfIn)))
-    ## here. need to replace intersected lines from sfLs with those in newBuffer
-    newBuffer <- t(newBuffer)
-    lNewBuffer <- lapply(split(newBuffer, rep(1:29, each=121)), matrix, ncol=2)
-    sfcNewBuffers <- sf::st_sfc(lapply(lNewBuffer, function(newBuffer) {
-        sf::st_polygon(list(rbind(newBuffer, newBuffer[1, ])))}))
+    browser()
+    mNewLines <- t(mNewLines)
+    mNewLines <- cbind(mNewLines, L1=1:nrow(mNewLines))
+    coordsLsIn <- sf::st_coordinates(sfLsIn)
+    coordsLsIn[rep(c(FALSE, TRUE), nrow(sfLsIn)), ] <- mNewLines # replace clipped points
+    lNewLines <- by(coordsLsIn[, c('X', 'Y')], coordsLsIn[, 'L1'], function(x) {
+        sf::st_linestring(as.matrix(x))})
+    sf::st_sfc(lNewLines)
+    ## here. either: replace sfLsIn in sfLs with sfNewLines
+    ##           or: get endpoints from sfLs and replace sfLsIn endpoints with sfNewLines
+    ## lNewLines <- lapply(split(mNewLines, rep(1:29, each=121)), matrix, ncol=2)
+    sfcNewLines <- sf::st_sfc(lapply(lNewLines, function(newLine) {
+        sf::st_polygon(list(rbind(newLine, newLine[1, ])))}))
     sf::st_crs(sfcNewBuffers) <- crsBuf
-    sfcNewBuffers
+    sfcNewLines
 }
