@@ -39,11 +39,13 @@
 #' }
 #' @export
 surfBuff <- function(x, p, d) {
+    ## browser()
     if(sf::st_crs(x)!=sf::st_crs(p)) stop('CRS of x and p do not match')
     else crsBuf <- sf::st_crs(x)
     buf <- sf::st_buffer(x, d)
     coordsBuf <- sf::st_coordinates(buf)
     ## make linestrings from x to points on respective buf
+    ## here: if possible, set L1 & L2 rather than idLs and idFeature
     lCoords <- by(coordsBuf, coordsBuf[, 'L2'], apply, 1, function(M) {
         rbind(sf::st_coordinates(x[M[4], ]), M[1:2]) # bind center and buffer point coords
     })
@@ -63,6 +65,7 @@ surfBuff <- function(x, p, d) {
     sfLsIn <- sfLsIn[with(sfLsIn, order(idFeature, idLs)), ]
     sfIn <- sfIn[with(sfIn, order(idFeature, idLs)), ]
     mNewLines <- mapply(function(lstring, mls) { # attenuate linestrings by surface effects
+        ## browser()
         mls <- sf::st_cast(mls, 'MULTILINESTRING')
         coordsLs <- sf::st_coordinates(lstring) # start and end points
         coordsLs[, 'L1'] <- c(0, 0)
@@ -84,6 +87,7 @@ surfBuff <- function(x, p, d) {
         csumLs <- cumsum(lenLs)
         units(csumLs) <- units(d)
         xsLs <- csumLs > d # the linestrings exceeding d
+        if(!any(xsLs)) return(sf::st_coordinates(sfLs)[nrow(sfLs), c('X', 'Y')]) # end point
         lsXs <- sfLs[xsLs, ][1, ] # the xs linestring
         lenXs <- csumLs[xsLs][1] - d # the xs length
         iStart <- rev(which(!xsLs))[1] # index of last ok linestring
