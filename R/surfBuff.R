@@ -87,7 +87,9 @@ surfBuff <- function(x, p, d) {
         csumLs <- cumsum(lenLs)
         units(csumLs) <- units(d)
         xsLs <- csumLs > d # the linestrings exceeding d
-        if(!any(xsLs)) return(sf::st_coordinates(sfLs)[nrow(sfLs), c('X', 'Y')]) # end point
+        if(!any(xsLs)) { # if linestrings < d: return unaltered buffer point
+            return(sf::st_coordinates(sfLs)[nrow(sfLs), c('X', 'Y')])
+        }
         lsXs <- sfLs[xsLs, ][1, ] # the xs linestring
         lenXs <- csumLs[xsLs][1] - d # the xs length
         iStart <- rev(which(!xsLs))[1] # index of last ok linestring
