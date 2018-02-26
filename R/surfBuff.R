@@ -64,10 +64,11 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
     sfIn <- sfIn[with(sfIn, order(L2, idP)), ]
     ## trace linestring intersections and calculate total length given surface effects
     mNew <- mapply(function(lstring, mls) { # attenuate linestrings by surface effects
+        browser() # revise for split by idP & L2 (aka handle multiple surface effects)
         mls <- sf::st_cast(mls, 'MULTILINESTRING')
-        coordsLs <- sf::st_coordinates(lstring) # start and end points
+        coordsLs <- sf::st_coordinates(lstring[1, ]) # start and end points
         coordsLs[, 'L1'] <- c(0, 0)
-        coordsMls <- sf::st_coordinates(mls)
+        coordsMls <- sf::st_coordinates(mls) # by L2?
         coordsLs <- cbind(coordsLs, L2=c(coordsMls[1, 'L2'], coordsMls[nrow(coordsMls), 'L2']))
         coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
         lLs <- lapply(unique(coordsMls[, 'L2']), function(L2) { # build linestrings and effects
@@ -99,9 +100,9 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
         newPnt <- geosphere::destPoint(xsCoords, b, lenOk)[1, ]
         sfcPnt <- sf::st_sfc(sf::st_point(newPnt))
         sf::st_crs(sfcPnt) <- 4326
-        browser() ## TODO: intersections with multiple surface effects
+        ## browser() ## TODO: intersections with multiple surface effects
         sf::st_coordinates(sf::st_transform(sfcPnt, crsBuf))
-    }, split(sfLsIn, 1:nrow(sfLsIn)), split(sfIn, 1:nrow(sfIn)))
+    }, split(sfLsIn, with(sfLsIn, list(idP, L2))), split(sfIn, with(sfIn, list(idP, L2))))
     ## replace original buffer points with attenuated points and make new buffer geometries
     mNew <- t(mNew)
     colnames(mNew) <- c('X', 'Y')
