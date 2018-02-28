@@ -71,14 +71,18 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
         coordsMls <- sf::st_coordinates(mls) # by L2?
         coordsLs <- cbind(coordsLs, L2=c(coordsMls[1, 'L2'], coordsMls[nrow(coordsMls), 'L2']))
         coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
-        lLs <- lapply(unique(coordsMls[, 'L2']), function(L2) { # build linestrings and effects
-            coordsSub <- coordsMls[coordsMls[, 'L2']==L2, c('X', 'Y')]
-            s <- c(rep(c(1, mls[L2, ] $s), (nrow(coordsSub)-1)%/%2), 1)
-            geom <- lapply(2:nrow(coordsSub), function(i) { # switch iteration!?!
-                sf::st_linestring(rbind(coordsSub[i-1, ], coordsSub[i, ])) # switched i's!?!
-            })
-            sf::st_sf(geometry=sf::st_sfc(geom), s=s)
+        ## lLs <- lapply(unique(coordsMls[, 'L2']), function(L2) { # build linestrings and effects
+        ##     coordsSub <- coordsMls[coordsMls[, 'L2']==L2, c('X', 'Y')]
+        ##     s <- c(rep(c(1, mls[L2, ] $s), (nrow(coordsSub)-1)%/%2), 1)
+        if(coordsLs[1, 'X']<coordsLs[2, 'X']) coordsMls <- coordsMls[order(coordsMls[, 'X']), ]
+        else if(coordsLs[1, 'X']>coordsLs[2, 'X']) coordsMls <- coordsMls[-order(coordsMls[, 'X']), ]
+        else .sortCoords(coords, 'Y')
+        lLs <- lapply(2:nrow(coordsMls), function(i) { # switch iteration!?!
+            sfgLs <- sf::st_linestring(rbind(coordsMls[i-1, ], coordsMls[i, ])) # switched i's!?!
+            sf::st_sf(sf::st_sfc(sfgLs), s=mls[coordsMls[, 'L2'], ] $s)
         })
+        ##     sf::st_sf(geometry=sf::st_sfc(geom), s=s)
+        ## })
         sfLs <- do.call(rbind, lLs)
         sf::st_crs(sfLs) <- crsBuf
         lenLs <- sf::st_length(sfLs)
