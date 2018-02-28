@@ -11,33 +11,18 @@
 #' @return An sfc object holding surface buffers for each of the points in x
 #' @examples
 #' \dontrun{
-#' mi <- units::ud_units $mi
-#' m <- units::ud_units $m
-#' x <- c(runif(1, -114, -82), runif(1, 31, 40))
-#' aabb <- sp::bbox(rectBuff(x, 1e4*m))
-#' rx <- runif(20, aabb[1, 1], aabb[1, 2])
-#' ry <- runif(20, aabb[2, 1], aabb[2, 2])
-#' p <- rectBuff(cbind(rx, ry), 2e3*m)
-#' p <- sf::st_cast(sf::st_as_sf(p), 'POLYGON')
-#' isect <- snap(p, 0)
-#' p <- do.call(sf::st_sfc, sapply(1:max(isect), function(j) sf::st_union(p[isect==j, ])))
-#' s <- data.frame(s=rpois(length(p), 3)+1)
-#' p <- sf::st_sf(p, s)
-#' ## will a single factor column handle overlapping polygons?
-#' ## p <- sp::SpatialPolygonsDataFrame(sp::disaggregate(p), s)
-#' ## p <- sf::st_as_sf(p)
-#' rx <- runif(5, aabb[1, 1], aabb[1, 2])
-#' ry <- runif(5, aabb[2, 1], aabb[2, 2])
-#' x <- sf::st_sfc(sf::st_multipoint(cbind(rx, ry)))
-#' sf::st_crs(x) <- 4326
-#' sf::st_crs(p) <- 4326
-#' x <- sf::st_transform(x, 3083)
-#' p <- sf::st_transform(p, 3083)
-#' x <- sf::st_sf(sf::st_cast(x, 'POINT'))
-#' surfBuff(x, p, 3e3*m)
+#' outer = matrix(c(0,0,10,0,10,10,0,10,0,8,8,8,8,2,0,2,0,0),ncol=2, byrow=TRUE)
+#' hole = matrix(c(4,4,4,6,6,6,6,4,4,4),ncol=2, byrow=TRUE)
+#' ## lstr <- matrix(c(5,11,5,-1),ncol=2,byrow=TRUE)
+#' p1 <- c(5, 11)
+#' p2 <- c(2, 5)
+#' p <- st_sf(geom=st_sfc(st_polygon(list(outer)), st_polygon(list(hole))), s=c(2, 3))
+#' x <- st_sfc(st_point(p1), st_point(p2))
+#' surfBuff(x, p, 4)
 #' }
 #' @export
 surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping polygons?
+    browser() # debug with unprojected data
     ## buffer and make linestrings from center to buffer points
     if(sf::st_crs(x)!=sf::st_crs(p)) stop('CRS of x and p do not match')
     else crsBuf <- sf::st_crs(x)
@@ -62,27 +47,27 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
     sfLsIn <- merge(sfLs, sfIn[, c('idP', 'L2') ,drop=TRUE], by=c('idP', 'L2'))
     sfLsIn <- sfLsIn[with(sfLsIn, order(L2, idP)), ]
     sfIn <- sfIn[with(sfIn, order(L2, idP)), ]
-    ## trace linestring intersections and calculate total length given surface effects
-    mNew <- mapply(function(lstring, mls) { # attenuate linestrings by surface effects
-        browser() # revise for split by idP & L2 (aka handle multiple surface effects)
+    ## trace linestring intersections and attenuate linestrings by surface effects
+    mNew <- mapply(function(lstring, mls) {
+        ## browser() # debug switch
         mls <- sf::st_cast(mls, 'MULTILINESTRING')
+        coords4326 <- sf::st_coordinates(sf::st_transform(lstring[1, ], 4326)) # start and end points; 4326
+        b <- geosphere::bearing(coords4326) # bearing requires 4326
+        quad <- ceil(b * 0.011111111111111) # degrees to quadrant
         coordsLs <- sf::st_coordinates(lstring[1, ]) # start and end points
         coordsLs[, 'L1'] <- c(0, 0)
-        coordsMls <- sf::st_coordinates(mls) # by L2?
+        coordsMls <- sf::st_coordinates(mls)
         coordsLs <- cbind(coordsLs, L2=c(coordsMls[1, 'L2'], coordsMls[nrow(coordsMls), 'L2']))
         coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
-        ## lLs <- lapply(unique(coordsMls[, 'L2']), function(L2) { # build linestrings and effects
-        ##     coordsSub <- coordsMls[coordsMls[, 'L2']==L2, c('X', 'Y')]
-        ##     s <- c(rep(c(1, mls[L2, ] $s), (nrow(coordsSub)-1)%/%2), 1)
-        if(coordsLs[1, 'X']<coordsLs[2, 'X']) coordsMls <- coordsMls[order(coordsMls[, 'X']), ]
-        else if(coordsLs[1, 'X']>coordsLs[2, 'X']) coordsMls <- coordsMls[-order(coordsMls[, 'X']), ]
-        else .sortCoords(coords, 'Y')
-        lLs <- lapply(2:nrow(coordsMls), function(i) { # switch iteration!?!
-            sfgLs <- sf::st_linestring(rbind(coordsMls[i-1, ], coordsMls[i, ])) # switched i's!?!
+        coordsMls <- switch(quad, # sort mls by distance along bearing
+               coordsMls[order(coordsMls[, 'X']), ],
+               coordsMls[-order(coordsMls[, 'X']), ],
+               coordsMls[order(coordsMls[, 'Y']), ],
+               coordsMls[-order(coordsMls[, 'Y']), ])
+        lLs <- lapply(2:nrow(coordsMls), function(i) { # build linestrings with surface effect
+            sfgLs <- sf::st_linestring(rbind(coordsMls[i-1, ], coordsMls[i, ]))
             sf::st_sf(sf::st_sfc(sfgLs), s=mls[coordsMls[, 'L2'], ] $s)
         })
-        ##     sf::st_sf(geometry=sf::st_sfc(geom), s=s)
-        ## })
         sfLs <- do.call(rbind, lLs)
         sf::st_crs(sfLs) <- crsBuf
         lenLs <- sf::st_length(sfLs)
@@ -99,9 +84,9 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
         lenStart <- csumLs[iStart] # total length of ok linestrings
         lenOk <- d - lenStart # ok length of xs linestring
         lenOk <- lenOk / sfLs $s[iStart+1] # descale length by surface effect
-        xsCoords <- sf::st_coordinates(sf::st_transform(lsXs, 4326))[, c('X', 'Y')]
-        b <- geosphere::bearing(xsCoords)
-        newPnt <- geosphere::destPoint(xsCoords, b, lenOk)[1, ]
+        coordsXs <- sf::st_coordinates(sf::st_transform(lsXs, 4326))[, c('X', 'Y')]
+        b <- geosphere::bearing(coordsXs)
+        newPnt <- geosphere::destPoint(coordsXs, b, lenOk)[1, ]
         sfcPnt <- sf::st_sfc(sf::st_point(newPnt))
         sf::st_crs(sfcPnt) <- 4326
         ## browser() ## TODO: intersections with multiple surface effects
