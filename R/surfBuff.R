@@ -48,9 +48,9 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
     sfIn <- sfIn[with(sfIn, order(L2, idP)), ]
     ## trace linestring intersections and attenuate linestrings by surface effects
     mNew <- mapply(function(lstring, mls) {
-        browser() # debug trig to get new point
+        ## browser() # debug trig to get new point
         mls <- sf::st_cast(mls, 'MULTILINESTRING')
-        if(is.na(crsBuf)) { # if no CRS, use trig to get bearing
+        if(is.na(crsBuf)) { # use trig to get bearing
             p1 <- sf::st_geometry(sf::st_cast(lstring, 'POINT')[1, ])[[1]] # start
             p2 <- sf::st_geometry(sf::st_cast(lstring, 'POINT')[2, ])[[1]] # end
             lP <- as.list(p2 - p1)
@@ -96,21 +96,23 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
         lenStart <- csumLs[iStart] # total length of ok linestrings
         lenOk <- d - lenStart # ok length of xs linestring
         lenOk <- lenOk / sfLs $s[iStart+1] # descale length by surface effect
-        if(is.na(crsBuf)) { # if no CRS, use trig to get new point
+        if(is.na(crsBuf)) { # use trig to get new point
             b <- deg2rad(b)
-            pntOk <- sf::st_geometry(sf::st_cast(lsXs, 'POINT')[1, ])
-            pntNew <- pntOk + c(d * cos(b), d * sin(b)) # class(pntNew) == class(pntOk)
+            sfcOk <- sf::st_geometry(sf::st_cast(lsXs, 'POINT')[1, ])
+            sfcNew <- sfcOk + c(d * cos(b), d * sin(b)) # class(sfcNew) == class(sfcOk)
         } else { # get new point on ellipsoid
             coordsXs <- sf::st_coordinates(sf::st_transform(lsXs, 4326))[, c('X', 'Y')]
             b <- geosphere::bearing(coordsXs)
-            pntNew <- geosphere::destPoint(coordsXs, b, lenOk)[1, ]
+            coordsNew <- geosphere::destPoint(coordsXs, b, lenOk)[1, ]
+            sfcNew <- sf::st_sfc(sf::st_point(coordsNew))
+            sf::st_crs(sfcNew) <- 4326
+            sfcNew <- sf::st_coordinates(sf::st_transform(sfcNew, crsBuf))
         }
-        sfcPnt <- sf::st_sfc(sf::st_point(pntNew))
-        sf::st_crs(sfcPnt) <- 4326
-        sf::st_coordinates(sf::st_transform(sfcPnt, crsBuf))
+        sfcNew
     }, split(sfLsIn, with(sfLsIn, list(idP, L2)), drop=TRUE), # args
        split(sfIn, with(sfIn, list(idP, L2)), drop=TRUE))
     ## replace original buffer points with attenuated points and make new buffer geometries
+    browser()
     mNew <- t(mNew)
     colnames(mNew) <- c('X', 'Y')
     dfrNew <- cbind(mNew, L1=1, sfIn[, c('L2', 'idP'), drop=TRUE])
