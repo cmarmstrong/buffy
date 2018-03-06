@@ -66,7 +66,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
         coordsMls <- sf::st_coordinates(mls)
         coordsLs <- cbind(coordsLs, L2=c(coordsMls[1, 'L2'], coordsMls[nrow(coordsMls), 'L2']))
         coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
-        ax <- ifelse(b%%180==90, 'Y', 'X') # sort verticle line by Y
+        ax <- ifelse(all.equal(b%%180, 90), 'Y', 'X') # sort verticle line by Y
         coordsMls <- switch(quad, # sort mls by distance along bearing
                             coordsMls[order(coordsMls[, ax]), ],
                             coordsMls[-order(coordsMls[, ax]), ],
