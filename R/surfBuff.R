@@ -47,8 +47,8 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
     sfLsIn <- sfLsIn[with(sfLsIn, order(L2, idP)), ]
     sfIn <- sfIn[with(sfIn, order(L2, idP)), ]
     ## trace linestring intersections and attenuate linestrings by surface effects
-    mNew <- mapply(function(lstring, mls) {
-        ## browser() # debug trig to get new point
+    lNew <- mapply(function(lstring, mls) {
+        ## browser() # debug sort coordsMls
         mls <- sf::st_cast(mls, 'MULTILINESTRING')
         if(is.na(crsBuf)) { # use trig to get bearing
             p1 <- sf::st_geometry(sf::st_cast(lstring, 'POINT')[1, ])[[1]] # start
@@ -60,24 +60,24 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
             coords4326 <- sf::st_coordinates(sf::st_transform(lstring[1, ], 4326))
             b <- geosphere::bearing(coords4326) # bearing requires 4326
         }
-        quad <- ceiling(b * 0.011111111111111) # degrees to quadrant
+        quad <- floor(b * 0.011111111111111 + 1) # degrees to quadrant
         coordsLs <- sf::st_coordinates(lstring[1, ]) # start and end points
         coordsLs[, 'L1'] <- c(0, 0)
         coordsMls <- sf::st_coordinates(mls)
-        coordsLs <- cbind(coordsLs, L2=c(coordsMls[1, 'L2'], coordsMls[nrow(coordsMls), 'L2']))
-        coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
-        ax <- ifelse(all.equal(b%%180, 90), 'Y', 'X') # sort verticle line by Y
+        ax <- ifelse(isTRUE(all.equal(b%%180, 90)), 'Y', 'X') # sort verticle line by Y
         coordsMls <- switch(quad, # sort mls by distance along bearing
                             coordsMls[order(coordsMls[, ax]), ],
-                            coordsMls[-order(coordsMls[, ax]), ],
-                            coordsMls[-order(coordsMls[, ax]), ],
+                            coordsMls[order(coordsMls[, ax], decreasing=TRUE), ],
+                            coordsMls[order(coordsMls[, ax], decreasing=TRUE), ],
                             coordsMls[order(coordsMls[, ax]), ])
+        coordsLs <- cbind(coordsLs, L2=c(0, coordsMls[nrow(coordsMls), 'L2']+1))
+        coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
         lLs <- lapply(2:nrow(coordsMls), function(i) { # build linestrings with surface effect
             coordsL <- rbind(coordsMls[i-1, ], coordsMls[i, ])
             sfgLs <- sf::st_linestring(coordsL[, c('X', 'Y')])
             L2 <- unique(coordsL[, 'L2']) # length always == 1 ?
             ## if line within intersected feature: set s, else s=1 (no surface effect)
-            s <- ifelse(do.call(identical, as.list(coordsL[, 'L1'])), mls[L2, ] $s, 1)
+            s <- ifelse(do.call(identical, as.list(coordsL[, 'L2'])), mls[L2, ] $s, 1)
             sf::st_sf(geom=sf::st_sfc(sfgLs), s=s)
         })
         sfLs <- do.call(rbind, lLs)
@@ -99,7 +99,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
         if(is.na(crsBuf)) { # use trig to get new point
             b <- deg2rad(b)
             sfcOk <- sf::st_geometry(sf::st_cast(lsXs, 'POINT')[1, ])
-            sfcNew <- sfcOk + c(d * cos(b), d * sin(b)) # class(sfcNew) == class(sfcOk)
+            sfcNew <- sfcOk + c(lenOk * cos(b), lenOk * sin(b)) # class(sfcNew) == class(sfcOk)
         } else { # get new point on ellipsoid
             coordsXs <- sf::st_coordinates(sf::st_transform(lsXs, 4326))[, c('X', 'Y')]
             b <- geosphere::bearing(coordsXs)
@@ -108,17 +108,16 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
             sf::st_crs(sfcNew) <- 4326
             sfcNew <- sf::st_coordinates(sf::st_transform(sfcNew, crsBuf))
         }
-        sfcNew
+        sf::st_sf(sfcNew, mls[1, c('idP', 'L2'), drop=TRUE])
     }, split(sfLsIn, with(sfLsIn, list(idP, L2)), drop=TRUE), # args
-       split(sfIn, with(sfIn, list(idP, L2)), drop=TRUE))
+    split(sfIn, with(sfIn, list(idP, L2)), drop=TRUE),
+    SIMPLIFY=FALSE)
     ## replace original buffer points with attenuated points and make new buffer geometries
     browser()
-    mNew <- t(mNew)
-    colnames(mNew) <- c('X', 'Y')
-    dfrNew <- cbind(mNew, L1=1, sfIn[, c('L2', 'idP'), drop=TRUE])
-    dfrBuf <- data.frame(coordsBuf, idP=rep(1:(1+4*nQuadSegs), nrow(x)))
-    dfrAntiNew <- dplyr::anti_join(dfrBuf, dfrNew, by=c('L2', 'idP'))
-    dfrNewBuf <- rbind(dfrAntiNew, dfrNew)
+    sfNew <- do.call(rbind, lNew)
+    dfrBuf <- data.frame(coordsBuf, idP=rep(1:(1+4*nQuadSegs), length(sf::st_geometry(x))))
+    dfrAntiNew <- dplyr::anti_join(dfrBuf, sfNew, by=c('L2', 'idP'))
+    dfrNewBuf <- rbind(dfrAntiNew, sfNew)
     dfrNewBuf <- with(dfrNewBuf, dfrNewBuf[order(idP, L2), ])
     ## DEBUG below here
     lNewBuf <- by(dfrNewBuf[, c('X', 'Y')], dfrNewBuf $L2, function(x) {

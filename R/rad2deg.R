@@ -4,7 +4,7 @@
 #'
 #' @param x numeric radians or degrees
 #' @return numeric degrees or radians
-rad2deg <- function(rad) (rad * 180) / (pi)
+rad2deg <- function(x) (x * 180) / (pi)
 
 #' @describeIn rad2deg Convert degrees to radians
-deg2rad <- function(deg) {(deg * pi) / (180)}
+deg2rad <- function(x) (x * pi) / (180)
