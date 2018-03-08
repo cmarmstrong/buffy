@@ -48,7 +48,6 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
     sfIn <- sfIn[with(sfIn, order(L2, idP)), ]
     ## trace linestring intersections and attenuate linestrings by surface effects
     lNew <- mapply(function(lstring, mls) {
-        ## browser() # debug sort coordsMls
         mls <- sf::st_cast(mls, 'MULTILINESTRING')
         if(is.na(crsBuf)) { # use trig to get bearing
             p1 <- sf::st_geometry(sf::st_cast(lstring, 'POINT')[1, ])[[1]] # start
@@ -113,7 +112,6 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
     split(sfIn, with(sfIn, list(idP, L2)), drop=TRUE),
     SIMPLIFY=FALSE)
     ## replace original buffer points with attenuated points and make new buffer geometries
-    browser()
     sfNew <- do.call(rbind, lNew)
     dfrBuf <- data.frame(coordsBuf, idP=rep(1:(1+4*nQuadSegs), length(sf::st_geometry(x))))
     dfrAntiNew <- dplyr::anti_join(dfrBuf, sfNew, by=c('L2', 'idP'))
@@ -122,9 +120,8 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
     sfAntiNew <- sf::st_sf(geom=sfcAntiNew, dfrAntiNew[, c('idP', 'L2')])
     sfNewBuf <- rbind(sfAntiNew, sfNew)
     sfNewBuf <- sfNewBuf[with(sfNewBuf, order(L2, idP)), ]
-    ## DEBUG below here
-    lNewBuf <- by(dfrNewBuf[, c('X', 'Y')], dfrNewBuf $L2, function(x) {
-        sf::st_polygon(list(as.matrix(x)))
+    lNewBuf <- tapply(sf::st_geometry(sfNewBuf), sfNewBuf $L2, function(x) {
+        sf::st_polygon(list(sf::st_coordinates(x)))
     }, simplify=FALSE)
     sfcNewBuf <- sf::st_sfc(lNewBuf)
     sf::st_crs(sfcNewBuf) <- crsBuf
