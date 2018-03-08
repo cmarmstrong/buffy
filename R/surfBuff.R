@@ -108,7 +108,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
             sf::st_crs(sfcNew) <- 4326
             sfcNew <- sf::st_coordinates(sf::st_transform(sfcNew, crsBuf))
         }
-        sf::st_sf(sfcNew, mls[1, c('idP', 'L2'), drop=TRUE])
+        sf::st_sf(geom=sfcNew, mls[1, c('idP', 'L2'), drop=TRUE])
     }, split(sfLsIn, with(sfLsIn, list(idP, L2)), drop=TRUE), # args
     split(sfIn, with(sfIn, list(idP, L2)), drop=TRUE),
     SIMPLIFY=FALSE)
@@ -117,8 +117,11 @@ surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping 
     sfNew <- do.call(rbind, lNew)
     dfrBuf <- data.frame(coordsBuf, idP=rep(1:(1+4*nQuadSegs), length(sf::st_geometry(x))))
     dfrAntiNew <- dplyr::anti_join(dfrBuf, sfNew, by=c('L2', 'idP'))
-    dfrNewBuf <- rbind(dfrAntiNew, sfNew)
-    dfrNewBuf <- with(dfrNewBuf, dfrNewBuf[order(idP, L2), ])
+    lAntiNew <- lapply(split(as.matrix(dfrAntiNew[, c('X', 'Y')]), 1:nrow(dfrAntiNew)), sf::st_point)
+    sfcAntiNew <- do.call(sf::st_sfc, lAntiNew)
+    sfAntiNew <- sf::st_sf(geom=sfcAntiNew, dfrAntiNew[, c('idP', 'L2')])
+    sfNewBuf <- rbind(sfAntiNew, sfNew)
+    sfNewBuf <- sfNewBuf[with(sfNewBuf, order(L2, idP)), ]
     ## DEBUG below here
     lNewBuf <- by(dfrNewBuf[, c('X', 'Y')], dfrNewBuf $L2, function(x) {
         sf::st_polygon(list(as.matrix(x)))
