@@ -1,14 +1,18 @@
-#' Construct a surface buffer
+#' Surface buffer
 #'
 #' Construct a buffer that is attenuated by effects of the surface.
+#' 
+#' If p & x have a coordinate reference system, then surfBuf will execute
+#' the buffering geometry on the surface of the WSG84 ellipsoid, else the
+#' buffering will use euclidean geometry.
 #'
-#' @param x points of class sf, sfc, or sfg
+#' @param x points of class sf or sfc
 #' @param p polygons of class sf, optionally with a single column indicating
 #'   surface effects as distance multipliers; eg an effect of 6 increases
 #'   distance across a polygon by 6
 #' @param d an integer or object of class units for radius distance; if units,
 #'   then the units must be convertible to units of p
-#' @return An sfc object holding surface buffers for each of the points in x
+#' @return An sfc object of surface buffers for each of the points in x
 #' @examples
 #' \dontrun{
 #' outer = matrix(c(0,0,10,0,10,10,0,10,0,8,8,8,8,2,0,2,0,0),ncol=2, byrow=TRUE)
