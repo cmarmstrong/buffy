@@ -1,8 +1,10 @@
 Package: buffy
-Title: What the Package Does (one line, title case)
+Title: An R Package With Advanced Buffering for Geometry Objects
 Version: 0.0.0.9000
-Authors@R: person("First", "Last", email = "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
+Authors@R: person("Chandler", "Armstrong", email = "omni.armstrong@gmail.com", role = c("aut", "cre"))
+Description: Provides functions for generating advanced types of buffers around
+  geometry objects.  Generates buffers on the WSG84 ellipsoid or in Euclidean
+  geometry, as appropriate.
 Depends: R (>= 3.4.0)
 Imports: dplyr,
   geosphere,
@@ -10,7 +12,7 @@ Imports: dplyr,
   sf,
   sp,
   units
-License: What license is it under?
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 6.0.1

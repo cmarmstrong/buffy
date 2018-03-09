@@ -2,3 +2,6 @@
 
 export(rectBuff)
 export(surfBuff)
+importFrom(stats,as.dist)
+importFrom(stats,cutree)
+importFrom(stats,hclust)

@@ -38,5 +38,5 @@ sp::plot(with(units::ud_units, rectBuff(rbind(p11, p21), mi, 2*mi,
                                         c(b1, b2))))
 }
 \seealso{
-\link{\code{geosphere::bearing}}
+\code{\link[geosphere]{bearing}}
 }

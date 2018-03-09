@@ -4,7 +4,7 @@
 \alias{surfBuff}
 \title{Surface buffer}
 \usage{
-surfBuff(x, p, d, nQuadSegs = 30, ...)
+surfBuff(x, p, d, nQuadSegs = 30)
 }
 \arguments{
 \item{x}{points of class sf or sfc}
@@ -15,6 +15,8 @@ distance across a polygon by 6}
 
 \item{d}{an integer or object of class units for radius distance; if units,
 then the units must be convertible to units of p}
+
+\item{nQuadSegs}{integer; number of segments per quadrant for buffers}
 }
 \value{
 An sfc object of surface buffers for each of the points in x

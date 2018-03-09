@@ -16,7 +16,7 @@ deg2rad(x)
 numeric degrees or radians
 }
 \description{
-Convert radians to degrees
+Convert radians to degrees or vice-versa
 }
 \section{Functions}{
 \itemize{

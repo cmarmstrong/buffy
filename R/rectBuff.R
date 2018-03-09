@@ -12,7 +12,7 @@
 #' @param d1 half length of bearing aligned distance(s) of class units
 #' @param d2 half length of bearing orthogonal distances(s) of class units
 #' @return A SpatialPolygons object
-#' @seealso \link{\code{geosphere::bearing}}
+#' @seealso \code{\link[geosphere]{bearing}}
 #' @examples
 #' p11 <- c(-92.44744828628, 34.566107548536)
 #' p12 <- p11 + rnorm(2, sd=0.01)

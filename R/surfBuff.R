@@ -12,6 +12,7 @@
 #'   distance across a polygon by 6
 #' @param d an integer or object of class units for radius distance; if units,
 #'   then the units must be convertible to units of p
+#' @param nQuadSegs integer; number of segments per quadrant for buffers
 #' @return An sfc object of surface buffers for each of the points in x
 #' @examples
 #' \dontrun{
@@ -25,7 +26,7 @@
 #' surfBuff(x, p, 8)
 #' }
 #' @export
-surfBuff <- function(x, p, d, nQuadSegs=30, ...) { ## TODO: handles overlapping polygons?
+surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polygons?
     ## buffer and make linestrings from center to buffer points
     if(sf::st_crs(x)!=sf::st_crs(p)) stop('CRS of x and p do not match')
     else crsBuf <- sf::st_crs(x)

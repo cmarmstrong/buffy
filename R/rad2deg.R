@@ -1,6 +1,6 @@
 #' Radians to degrees
 #'
-#' Convert radians to degrees
+#' Convert radians to degrees or vice-versa
 #'
 #' @param x numeric radians or degrees
 #' @return numeric degrees or radians

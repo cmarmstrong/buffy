@@ -17,7 +17,3 @@ a vector of group identifiers
 \description{
 Group polygons together that are within some distance of each other
 }
-\details{
-Code based on:
-<https://gis.stackexchange.com/questions/254519/group-and-union-polygons-that-share-a-border-in-r>
-}
