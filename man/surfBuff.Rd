@@ -7,7 +7,7 @@
 surfBuff(x, p, d, nQuadSegs = 30)
 }
 \arguments{
-\item{x}{points of class sf or sfc}
+\item{x}{points of class sfc}
 
 \item{p}{polygons of class sf, optionally with a single column indicating
 surface effects as distance multipliers; eg an effect of 6 increases

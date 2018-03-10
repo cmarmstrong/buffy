@@ -6,7 +6,7 @@
 #' the buffering geometry on the surface of the WSG84 ellipsoid, else the
 #' buffering will use euclidean geometry.
 #'
-#' @param x points of class sf or sfc
+#' @param x points of class sfc
 #' @param p polygons of class sf, optionally with a single column indicating
 #'   surface effects as distance multipliers; eg an effect of 6 increases
 #'   distance across a polygon by 6
@@ -27,6 +27,7 @@
 #' }
 #' @export
 surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polygons?
+    browser() # a points matrix should have two columns (using surfBuff_test.Rdata)
     ## buffer and make linestrings from center to buffer points
     if(sf::st_crs(x)!=sf::st_crs(p)) stop('CRS of x and p do not match')
     else crsBuf <- sf::st_crs(x)
