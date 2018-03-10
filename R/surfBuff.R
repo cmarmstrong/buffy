@@ -27,7 +27,6 @@
 #' }
 #' @export
 surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polygons?
-    browser() # a points matrix should have two columns (using surfBuff_test.Rdata)
     ## buffer and make linestrings from center to buffer points
     if(sf::st_crs(x)!=sf::st_crs(p)) stop('CRS of x and p do not match')
     else crsBuf <- sf::st_crs(x)
@@ -63,7 +62,9 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
             b <- b%%360 # wrap to 360 degrees
         } else { # get bearing on ellipsoid
             coords4326 <- sf::st_coordinates(sf::st_transform(lstring[1, ], 4326))
-            b <- geosphere::bearing(coords4326) # bearing requires 4326
+            coords4326 <- coords4326[, c('X', 'Y')]
+            b <- geosphere::bearing(coords4326[1,], coords4326[2,]) # bearing requires 4326
+            b <- b%%360
         }
         quad <- floor(b * 0.011111111111111 + 1) # degrees to quadrant
         coordsLs <- sf::st_coordinates(lstring[1, ]) # start and end points
@@ -87,10 +88,9 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         })
         sfLs <- do.call(rbind, lLs)
         sf::st_crs(sfLs) <- crsBuf
-        lenLs <- sf::st_length(sfLs)
+        lenLs <- sf::st_length(sfLs) # if units, keeps units
         lenLs <- lenLs * sfLs $s # scale lengths by surface effects
         csumLs <- cumsum(lenLs)
-        if(identical(class(d), 'units')) units::units(csumLs) <- units::units(d)
         xsLs <- csumLs > d # the linestrings exceeding d
         if(!any(xsLs)) { # if linestrings < d: return unattenuated buffer point
             return(sf::st_coordinates(sfLs)[nrow(sfLs), c('X', 'Y')])
@@ -111,7 +111,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
             coordsNew <- geosphere::destPoint(coordsXs, b, lenOk)[1, ]
             sfcNew <- sf::st_sfc(sf::st_point(coordsNew))
             sf::st_crs(sfcNew) <- 4326
-            sfcNew <- sf::st_coordinates(sf::st_transform(sfcNew, crsBuf))
+            sfcNew <- sf::st_transform(sfcNew, crsBuf)
         }
         sf::st_sf(geom=sfcNew, mls[1, c('idP', 'L2'), drop=TRUE])
     }, split(sfLsIn, with(sfLsIn, list(idP, L2)), drop=TRUE), # args
