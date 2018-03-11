@@ -53,7 +53,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
     sfIn <- sfIn[with(sfIn, order(L2, idP)), ]
     ## trace linestring intersections and attenuate linestrings by surface effects
     lNew <- mapply(function(lstring, mls) {
-        mls <- sf::st_cast(mls, 'MULTILINESTRING')
+        mls <- sf::st_cast(mls, 'MULTILINESTRING') # one mls per s
         if(is.na(crsBuf)) { # use trig to get bearing
             p1 <- sf::st_geometry(sf::st_cast(lstring, 'POINT')[1, ])[[1]] # start
             p2 <- sf::st_geometry(sf::st_cast(lstring, 'POINT')[2, ])[[1]] # end
@@ -63,7 +63,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         } else { # get bearing on ellipsoid
             coords4326 <- sf::st_coordinates(sf::st_transform(lstring[1, ], 4326))
             coords4326 <- coords4326[, c('X', 'Y')]
-            b <- geosphere::bearing(coords4326[1,], coords4326[2,]) # bearing requires 4326
+            b <- geosphere::bearing(coords4326[1,], coords4326[2,])
             b <- b%%360
         }
         quad <- floor(b * 0.011111111111111 + 1) # degrees to quadrant
@@ -88,7 +88,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         })
         sfLs <- do.call(rbind, lLs)
         sf::st_crs(sfLs) <- crsBuf
-        lenLs <- sf::st_length(sfLs) # if units, keeps units
+        lenLs <- sf::st_length(sfLs) # returns units object, if appropriate
         lenLs <- lenLs * sfLs $s # scale lengths by surface effects
         csumLs <- cumsum(lenLs)
         xsLs <- csumLs > d # the linestrings exceeding d
@@ -123,6 +123,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
     dfrAntiNew <- dplyr::anti_join(dfrBuf, sfNew, by=c('L2', 'idP'))
     lAntiNew <- lapply(split(as.matrix(dfrAntiNew[, c('X', 'Y')]), 1:nrow(dfrAntiNew)), sf::st_point)
     sfcAntiNew <- do.call(sf::st_sfc, lAntiNew)
+    sf::st_crs(sfcAntiNew) <- crsBuf
     sfAntiNew <- sf::st_sf(geom=sfcAntiNew, dfrAntiNew[, c('idP', 'L2')])
     sfNewBuf <- rbind(sfAntiNew, sfNew)
     sfNewBuf <- sfNewBuf[with(sfNewBuf, order(L2, idP)), ]
