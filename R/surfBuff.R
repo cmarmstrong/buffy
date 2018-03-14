@@ -68,7 +68,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         }
         quad <- floor(b * 0.011111111111111 + 1) # degrees to quadrant
         coordsLs <- sf::st_coordinates(lstring[1, ]) # start and end points
-        coordsLs[, 'L1'] <- c(0, 0)
+        coordsLs[, 'L1'] <- c(1, 2) # first and second elements of the 'start and end' feature
         coordsMls <- sf::st_coordinates(mls)
         ax <- ifelse(isTRUE(all.equal(b%%180, 90)), 'Y', 'X') # sort verticle line by Y
         coordsMls <- switch(quad, # sort mls by distance along bearing
@@ -83,12 +83,14 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
             sfgLs <- sf::st_linestring(coordsL[, c('X', 'Y')])
             L2 <- unique(coordsL[, 'L2']) # length always == 1 ?
             ## if line within intersected feature: set s, else s=1 (no surface effect)
-            s <- ifelse(do.call(identical, as.list(coordsL[, 'L2'])), mls[L2, ] $s, 1)
+            identical_L2 <- do.call(identical, as.list(coordsL[, 'L2'])) # feature
+            identical_L1 <- do.call(identical, as.list(coordsL[, 'L1'])) # new intersection of same feature
+            s <- ifelse(!identical_L2 | !identical_L1, 1, mls[L2, ] $s)
             sf::st_sf(geom=sf::st_sfc(sfgLs), s=s)
         })
         sfLs <- do.call(rbind, lLs)
         sf::st_crs(sfLs) <- crsBuf
-        lenLs <- sf::st_length(sfLs) # returns units object, if appropriate
+        lenLs <- sf::st_length(sfLs) # length returns units object, if appropriate
         lenLs <- lenLs * sfLs $s # scale lengths by surface effects
         csumLs <- cumsum(lenLs)
         xsLs <- csumLs > d # the linestrings exceeding d
