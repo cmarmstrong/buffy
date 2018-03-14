@@ -57,27 +57,27 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         if(is.na(crsBuf)) { # use trig to get bearing
             p1 <- sf::st_geometry(sf::st_cast(lstring, 'POINT')[1, ])[[1]] # start
             p2 <- sf::st_geometry(sf::st_cast(lstring, 'POINT')[2, ])[[1]] # end
-            lP <- as.list(p2 - p1)
+            lP <- as.list(p2 - p1) # switching this fix opposite order, below?
             b <- rad2deg(do.call(atan2, rev(lP))) # arctan(y/x)
             b <- b%%360 # wrap to 360 degrees
         } else { # get bearing on ellipsoid
-            coords4326 <- sf::st_coordinates(sf::st_transform(lstring[1, ], 4326))
+            coords4326 <- sf::st_coordinates(sf::st_transform(lstring, 4326))
             coords4326 <- coords4326[, c('X', 'Y')]
-            b <- geosphere::bearing(coords4326[1,], coords4326[2,])
+            b <- geosphere::bearing(coords4326[2,], coords4326[1,]) # opposite order
             b <- b%%360
         }
         quad <- floor(b * 0.011111111111111 + 1) # degrees to quadrant
         coordsLs <- sf::st_coordinates(lstring[1, ]) # start and end points
         coordsLs[, 'L1'] <- c(1, 2) # first and second elements of the 'start and end' feature
         coordsMls <- sf::st_coordinates(mls)
+        coordsLs <- cbind(coordsLs, L2=c(0, max(coordsMls[, 'L2'])+1))
+        coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
         ax <- ifelse(isTRUE(all.equal(b%%180, 90)), 'Y', 'X') # sort verticle line by Y
         coordsMls <- switch(quad, # sort mls by distance along bearing
                             coordsMls[order(coordsMls[, ax]), ],
                             coordsMls[order(coordsMls[, ax], decreasing=TRUE), ],
                             coordsMls[order(coordsMls[, ax], decreasing=TRUE), ],
                             coordsMls[order(coordsMls[, ax]), ])
-        coordsLs <- cbind(coordsLs, L2=c(0, coordsMls[nrow(coordsMls), 'L2']+1))
-        coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
         lLs <- lapply(2:nrow(coordsMls), function(i) { # build linestrings with surface effect
             coordsL <- rbind(coordsMls[i-1, ], coordsMls[i, ])
             sfgLs <- sf::st_linestring(coordsL[, c('X', 'Y')])
@@ -95,7 +95,8 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         csumLs <- cumsum(lenLs)
         xsLs <- csumLs > d # the linestrings exceeding d
         if(!any(xsLs)) { # if linestrings < d: return unattenuated buffer point
-            return(sf::st_coordinates(sfLs)[nrow(sfLs), c('X', 'Y')])
+            sfcP <- sf::st_geometry(sf::st_cast(lstring, 'POINT')[2, ])
+            return(sf::st_sf(geom=sfcP, mls[1, c('idP', 'L2'), drop=TRUE]))
         }
         lsXs <- sfLs[xsLs, ][1, ] # the xs linestring
         lenXs <- csumLs[xsLs][1] - d # the xs length
@@ -110,7 +111,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         } else { # get new point on ellipsoid
             coordsXs <- sf::st_coordinates(sf::st_transform(lsXs, 4326))[, c('X', 'Y')]
             b <- geosphere::bearing(coordsXs)
-            coordsNew <- geosphere::destPoint(coordsXs, b, lenOk)[1, ]
+            coordsNew <- geosphere::destPoint(coordsXs, b, units::set_units(lenOk, 'm'))[1, ]
             sfcNew <- sf::st_sfc(sf::st_point(coordsNew))
             sf::st_crs(sfcNew) <- 4326
             sfcNew <- sf::st_transform(sfcNew, crsBuf)
