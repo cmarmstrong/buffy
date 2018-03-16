@@ -68,12 +68,18 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         }
         quad <- floor(b * 0.011111111111111 + 1) # degrees to quadrant
         coordsLs <- sf::st_coordinates(lstring[1, ]) # start and end points
-        coordsLs[, 'L1'] <- c(1, 2) # first and second elements of the 'start and end' feature
+        ## coordsLs[, 'L1'] <- c(1, 2) # first and second elements of the 'start and end' feature
+        coordsLs[, 'L1'] <- c(1, 1) # first and second elements of the 'start and end' feature
         coordsMls <- sf::st_coordinates(mls)
-        coordsLs <- cbind(coordsLs, L2=c(0, max(coordsMls[, 'L2'])+1))
+        ## coordsLs <- cbind(coordsLs, L2=c(0, max(coordsMls[, 'L2'])+1))
+        coordsLs <- cbind(coordsLs, L2=c(0, 0))
+        ## dups <- apply(coordsLs, 1, function(x) any(apply(coordsMls, 1, function(y) { # duplicate coords
+        ##     isTRUE(all.equal(x[c('X', 'Y')], y[c('X', 'Y')]))
+        ## })))
+        ## coordsMls <- rbind(coordsLs[!dups, ], coordsMls) # remove duplicate coords from Ls
         coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
-        ax <- ifelse(isTRUE(all.equal(b%%180, 90)), 'Y', 'X') # sort verticle line by Y
-        coordsMls <- switch(quad, # sort mls by distance along bearing
+        ax <- ifelse(isTRUE(all.equal(b%%180, 90)), 'Y', 'X') # order verticle line by Y
+        coordsMls <- switch(quad, # order mls by distance along bearing
                             coordsMls[order(coordsMls[, ax]), ],
                             coordsMls[order(coordsMls[, ax], decreasing=TRUE), ],
                             coordsMls[order(coordsMls[, ax], decreasing=TRUE), ],
@@ -98,12 +104,15 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
             sfcP <- sf::st_geometry(sf::st_cast(lstring, 'POINT')[2, ])
             return(sf::st_sf(geom=sfcP, mls[1, c('idP', 'L2'), drop=TRUE]))
         }
+        ## if(all(xsLs)) lenOk <- d # need to scale...
+        ## else { # get portion of xsLs that is Ok
         lsXs <- sfLs[xsLs, ][1, ] # the xs linestring
         lenXs <- csumLs[xsLs][1] - d # the xs length
         iStart <- rev(which(!xsLs))[1] # index of last ok linestring
         lenStart <- csumLs[iStart] # total length of ok linestrings
         lenOk <- d - lenStart # ok length of xs linestring
         lenOk <- lenOk / sfLs $s[iStart+1] # descale length by surface effect
+        ## }
         if(is.na(crsBuf)) { # use trig to get new point
             b <- deg2rad(b)
             sfcOk <- sf::st_geometry(sf::st_cast(lsXs, 'POINT')[1, ])
