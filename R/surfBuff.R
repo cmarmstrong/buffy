@@ -68,15 +68,9 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         }
         quad <- floor(b * 0.011111111111111 + 1) # degrees to quadrant
         coordsLs <- sf::st_coordinates(lstring[1, ]) # start and end points
-        ## coordsLs[, 'L1'] <- c(1, 2) # first and second elements of the 'start and end' feature
         coordsLs[, 'L1'] <- c(1, 1) # first and second elements of the 'start and end' feature
-        coordsMls <- sf::st_coordinates(mls)
-        ## coordsLs <- cbind(coordsLs, L2=c(0, max(coordsMls[, 'L2'])+1))
         coordsLs <- cbind(coordsLs, L2=c(0, 0))
-        ## dups <- apply(coordsLs, 1, function(x) any(apply(coordsMls, 1, function(y) { # duplicate coords
-        ##     isTRUE(all.equal(x[c('X', 'Y')], y[c('X', 'Y')]))
-        ## })))
-        ## coordsMls <- rbind(coordsLs[!dups, ], coordsMls) # remove duplicate coords from Ls
+        coordsMls <- sf::st_coordinates(mls)
         coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
         ax <- ifelse(isTRUE(all.equal(b%%180, 90)), 'Y', 'X') # order verticle line by Y
         coordsMls <- switch(quad, # order mls by distance along bearing
@@ -90,7 +84,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
             L2 <- unique(coordsL[, 'L2']) # length always == 1 ?
             ## if line within intersected feature: set s, else s=1 (no surface effect)
             identical_L2 <- do.call(identical, as.list(coordsL[, 'L2'])) # feature
-            identical_L1 <- do.call(identical, as.list(coordsL[, 'L1'])) # new intersection of same feature
+            identical_L1 <- do.call(identical, as.list(coordsL[, 'L1'])) # intersections of feature
             s <- ifelse(!identical_L2 | !identical_L1, 1, mls[L2, ] $s)
             sf::st_sf(geom=sf::st_sfc(sfgLs), s=s)
         })
@@ -125,7 +119,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
             sf::st_crs(sfcNew) <- 4326
             sfcNew <- sf::st_transform(sfcNew, crsBuf)
         }
-        browser() # points within surfaces have an additional intersection to parse
+        browser() # trig and geosphere bearing don't match; geosphere uses north==0/360
         sf::st_sf(geom=sfcNew, mls[1, c('idP', 'L2'), drop=TRUE])
     }, split(sfLsIn, with(sfLsIn, list(idP, L2)), drop=TRUE), # args
     split(sfIn, with(sfIn, list(idP, L2)), drop=TRUE),
