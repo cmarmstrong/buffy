@@ -70,14 +70,14 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         }
         quad <- floor(b * 0.011111111111111 + 1) # degrees to quadrant
         coordsLs <- sf::st_coordinates(lstring[1, ]) # start and end points
-        coordsLs[, 'L1'] <- c(1, 1) # first and second elements of the 'start and end' feature
+        coordsLs[, 'L1'] <- c(1, 2) # first and second elements of the 'start and end' feature
         coordsLs <- cbind(coordsLs, L2=c(0, 0))
         coordsMls <- sf::st_coordinates(mls)
         coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
         ## order lines close to 180/360 by Y to avoid errors of quadrant difference b/w projections
         ax <- ifelse(isTRUE(all.equal(0, abs(b-180), tolerance=2)), 'Y',
               ifelse(isTRUE(all.equal(0, (b-360)%%360, tolerance=2)), 'Y', 'X'))
-        decreasing <- FALSE
+        decreasing <- FALSE # set ascending/descending order by quadrant
         if(ax=='Y' & (quad==2|quad==3)) decreasing <- TRUE
         if(ax=='X' & quad > 2) decreasing <- TRUE
         coordsMls <- switch(quad, # order mls by distance along bearing (quads advance along compass)
