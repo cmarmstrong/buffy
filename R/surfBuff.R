@@ -76,7 +76,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
         ## order lines close to 180/360 by Y to avoid errors of quadrant difference b/w projections
         ax <- ifelse(isTRUE(all.equal(0, abs(b-180), tolerance=2)), 'Y',
-              ifelse(isTRUE(all.equal(0, abs(b-360), tolerance=2)), 'Y', 'X'))
+              ifelse(isTRUE(all.equal(0, (b-360)%%360, tolerance=2)), 'Y', 'X'))
         decreasing <- FALSE
         if(ax=='Y' & (quad==2|quad==3)) decreasing <- TRUE
         if(ax=='X' & quad > 2) decreasing <- TRUE
@@ -123,7 +123,6 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
             sf::st_crs(sfcNew) <- 4326
             sfcNew <- sf::st_transform(sfcNew, crsBuf)
         }
-        ## browser() # geosphere::bearing off (lines in quad 2 have bearings > 180)
         sf::st_sf(geom=sfcNew, mls[1, c('idP', 'L2'), drop=TRUE])
     }, split(sfLsIn, with(sfLsIn, list(idP, L2)), drop=TRUE), # args
     split(sfIn, with(sfIn, list(idP, L2)), drop=TRUE),
