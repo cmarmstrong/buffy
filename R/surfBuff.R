@@ -2,7 +2,7 @@
 #'
 #' Construct a buffer that is attenuated by effects of the surface.
 #' 
-#' If p & x have a coordinate reference system, then surfBuf will execute
+#' If p & x have a coordinate reference system, then surfBuff will execute
 #' the buffering geometry on the surface of the WSG84 ellipsoid, else the
 #' buffering will use euclidean geometry.
 #'
@@ -74,13 +74,17 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         coordsLs <- cbind(coordsLs, L2=c(0, 0))
         coordsMls <- sf::st_coordinates(mls)
         coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
-        ax <- ifelse(isTRUE(all.equal(b%%180, 0)), 'Y', 'X') # order verticle line by Y
-        quad <- ifelse(ax=='Y', quad+1, quad) # advance quadrant to quad 3/1 where sign(X)==sign(Y)
+        ## order lines close to 180/360 by Y to avoid errors of quadrant difference b/w projections
+        ax <- ifelse(isTRUE(all.equal(0, abs(b-180), tolerance=2)), 'Y',
+              ifelse(isTRUE(all.equal(0, abs(b-360), tolerance=2)), 'Y', 'X'))
+        decreasing <- FALSE
+        if(ax=='Y' & (quad==2|quad==3)) decreasing <- TRUE
+        if(ax=='X' & quad > 2) decreasing <- TRUE
         coordsMls <- switch(quad, # order mls by distance along bearing (quads advance along compass)
-                            coordsMls[order(coordsMls[, ax]), ],
-                            coordsMls[order(coordsMls[, ax]), ],
-                            coordsMls[order(coordsMls[, ax], decreasing=TRUE), ],
-                            coordsMls[order(coordsMls[, ax], decreasing=TRUE), ])
+                            coordsMls[order(coordsMls[, ax], decreasing=decreasing), ],
+                            coordsMls[order(coordsMls[, ax], decreasing=decreasing), ],
+                            coordsMls[order(coordsMls[, ax], decreasing=decreasing), ],
+                            coordsMls[order(coordsMls[, ax], decreasing=decreasing), ])
         lLs <- lapply(2:nrow(coordsMls), function(i) { # build linestrings with surface effect
             coordsL <- rbind(coordsMls[i-1, ], coordsMls[i, ])
             sfgLs <- sf::st_linestring(coordsL[, c('X', 'Y')])
@@ -119,7 +123,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
             sf::st_crs(sfcNew) <- 4326
             sfcNew <- sf::st_transform(sfcNew, crsBuf)
         }
-        browser() # ax==Y bugged
+        ## browser() # geosphere::bearing off (lines in quad 2 have bearings > 180)
         sf::st_sf(geom=sfcNew, mls[1, c('idP', 'L2'), drop=TRUE])
     }, split(sfLsIn, with(sfLsIn, list(idP, L2)), drop=TRUE), # args
     split(sfIn, with(sfIn, list(idP, L2)), drop=TRUE),
