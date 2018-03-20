@@ -18,7 +18,6 @@
 #' \dontrun{
 #' outer = matrix(c(0,0,10,0,10,10,0,10,0,8,8,8,8,2,0,2,0,0),ncol=2, byrow=TRUE)
 #' hole = matrix(c(4,4,4,6,6,6,6,4,4,4),ncol=2, byrow=TRUE)
-#' ## lstr <- matrix(c(5,11,5,-1),ncol=2,byrow=TRUE)
 #' p1 <- c(5, 11)
 #' p2 <- c(2, 5)
 #' p <- sf::st_sf(geom=sf::st_sfc(sf::st_polygon(list(outer)), sf::st_polygon(list(hole))), s=c(2, 3))
@@ -59,7 +58,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
             p2 <- sf::st_geometry(sf::st_cast(lstring, 'POINT')[2, ])[[1]] # end
             lP <- as.list(p2 - p1)
             b <- rad2deg(do.call(atan2, rev(lP))) # arctan(y/x)
-            b <- (450 - b) %% 360
+            b <- (450 - b) %% 360 # convert unit circle to compass
         } else { # get bearing on ellipsoid
             coords4326 <- sf::st_coordinates(sf::st_transform(lstring, 4326))
             coords4326 <- coords4326[, c('X', 'Y')]
@@ -69,7 +68,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         quad <- floor(b * 0.011111111111111 + 1) # degrees to quadrant
         coordsLs <- sf::st_coordinates(lstring[1, ]) # start and end points
         coordsLs[, 'L1'] <- c(1, 2) # first and second elements of the 'start and end' feature
-        coordsLs <- cbind(coordsLs, L2=c(0, 0))
+        coordsLs <- cbind(coordsLs, L2=c(0, 0)) # 'start and end' is feature 0
         coordsMls <- sf::st_coordinates(mls)
         coordsMls <- rbind(coordsLs[1, ], coordsMls, coordsLs[2, ])
         ## order lines close to 180/360 by Y to avoid errors of quadrant difference b/w projections

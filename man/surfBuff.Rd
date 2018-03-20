@@ -25,7 +25,7 @@ An sfc object of surface buffers for each of the points in x
 Construct a buffer that is attenuated by effects of the surface.
 }
 \details{
-If p & x have a coordinate reference system, then surfBuf will execute
+If p & x have a coordinate reference system, then surfBuff will execute
 the buffering geometry on the surface of the WSG84 ellipsoid, else the
 buffering will use euclidean geometry.
 }
@@ -33,7 +33,6 @@ buffering will use euclidean geometry.
 \dontrun{
 outer = matrix(c(0,0,10,0,10,10,0,10,0,8,8,8,8,2,0,2,0,0),ncol=2, byrow=TRUE)
 hole = matrix(c(4,4,4,6,6,6,6,4,4,4),ncol=2, byrow=TRUE)
-## lstr <- matrix(c(5,11,5,-1),ncol=2,byrow=TRUE)
 p1 <- c(5, 11)
 p2 <- c(2, 5)
 p <- sf::st_sf(geom=sf::st_sfc(sf::st_polygon(list(outer)), sf::st_polygon(list(hole))), s=c(2, 3))
