@@ -55,13 +55,11 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
     lNew <- mapply(function(lstring, mls) {
         mls <- sf::st_cast(mls, 'MULTILINESTRING') # one mls per s
         if(is.na(crsBuf)) { # use trig to get bearing
-            browser() # revise for new quads
             p1 <- sf::st_geometry(sf::st_cast(lstring, 'POINT')[1, ])[[1]] # start
             p2 <- sf::st_geometry(sf::st_cast(lstring, 'POINT')[2, ])[[1]] # end
-            lP <- as.list(p2 - p1) # switching this fix opposite order, below?
+            lP <- as.list(p2 - p1)
             b <- rad2deg(do.call(atan2, rev(lP))) # arctan(y/x)
             b <- (450 - b) %% 360
-            ## b <- b%%360 # wrap to 360 degrees
         } else { # get bearing on ellipsoid
             coords4326 <- sf::st_coordinates(sf::st_transform(lstring, 4326))
             coords4326 <- coords4326[, c('X', 'Y')]
@@ -112,7 +110,7 @@ surfBuff <- function(x, p, d, nQuadSegs=30) { ## TODO: handles overlapping polyg
         lenOk <- d - lenStart # ok length of xs linestring
         lenOk <- lenOk / sfLs $s[iStart+1] # descale length by surface effect
         if(is.na(crsBuf)) { # use trig to get new point
-            b <- deg2rad(b)
+            b <- deg2rad((90 - b) %% 360) # convert compass to unit circle
             sfcOk <- sf::st_geometry(sf::st_cast(lsXs, 'POINT')[1, ])
             sfcNew <- sfcOk + c(lenOk * cos(b), lenOk * sin(b)) # class(sfcNew) == class(sfcOk)
         } else { # get new point on ellipsoid
